@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MML 12 &mdash; Classification with SVMs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})"></script>
+    <style>
+        :root { --bg-primary:#0a0a0a; --bg-card:#0d1117; --bg-code:#161b22; --text-primary:#e6edf3; --text-secondary:#8b949e; --accent:#a78bfa; --accent-dim:#a78bfa44; --accent-glow:#a78bfa33; --accent-2:#f472b6; --accent-3:#fbbf24; --accent-4:#34d399; --border:#21262d; --font-display:'Space Grotesk',sans-serif; --font-mono:'JetBrains Mono','Fira Code',monospace; --font-body:'Inter',sans-serif; --max-width:900px; }
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        html{scroll-behavior:smooth}
+        body{background:var(--bg-primary);color:var(--text-primary);font-family:var(--font-body);font-size:17px;line-height:1.7;overflow-x:hidden}
+        .hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:2rem 1.5rem;text-align:center;position:relative}
+        .hero::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:700px;height:600px;background:radial-gradient(circle,var(--accent-glow) 0%,transparent 70%);pointer-events:none;z-index:0}
+        .hero>*{position:relative;z-index:1}
+        .series-label{font-family:var(--font-mono);font-size:.85rem;color:var(--accent);letter-spacing:.15em;text-transform:uppercase;margin-bottom:1rem}
+        .hero h1{font-family:var(--font-display);font-size:clamp(2rem,5vw,3.2rem);font-weight:700;color:var(--text-primary);line-height:1.2;margin-bottom:1rem}
+        .hero h1 .accent{color:var(--accent)}
+        .hero .subtitle{font-size:1.1rem;color:var(--text-secondary);max-width:640px;margin-bottom:2rem}
+        .tags{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-bottom:2.5rem}
+        .tag{font-family:var(--font-mono);font-size:.75rem;padding:.25rem .75rem;border-radius:999px;border:1px solid var(--accent);color:var(--accent);background:var(--accent-dim);white-space:nowrap}
+        .slide{min-height:100vh;max-width:var(--max-width);margin:0 auto;padding:4rem 1.5rem;position:relative;display:flex;flex-direction:column;justify-content:center}
+        .slide-number{font-family:var(--font-display);font-size:5rem;font-weight:700;color:var(--accent-dim);position:absolute;top:2rem;right:1.5rem;line-height:1;user-select:none}
+        .slide h2{font-family:var(--font-display);font-size:1.9rem;font-weight:700;color:var(--accent);margin-bottom:1.5rem;line-height:1.25}
+        .slide h3{font-family:var(--font-display);font-size:1.3rem;font-weight:600;color:var(--text-primary);margin-top:1.5rem;margin-bottom:.75rem}
+        .slide p{margin-bottom:1rem;color:var(--text-secondary)}
+        .slide p strong{color:var(--text-primary)}
+        .slide ul,.slide ol{margin-bottom:1rem;padding-left:1.5rem;color:var(--text-secondary)}
+        .slide li{margin-bottom:.4rem}
+        .slide li strong{color:var(--text-primary)}
+        .slide code{background:var(--bg-code);padding:.1rem .35rem;border-radius:3px;font-family:var(--font-mono);font-size:.85em;color:var(--accent)}
+        .diagram-grid{display:grid;gap:.75rem;margin:1.5rem 0;padding:1.5rem;background:var(--bg-card);border:1px solid var(--border);border-radius:8px}
+        .diagram-grid.cols-2{grid-template-columns:1fr 1fr}
+        .diagram-grid.cols-3{grid-template-columns:1fr 1fr 1fr}
+        .diagram-panel{padding:1rem;background:var(--bg-code);border:1px solid var(--border);border-radius:6px}
+        .diagram-panel.accent-border{border-left:3px solid var(--accent)}
+        .diagram-panel.r{border-left:3px solid var(--accent-2)}
+        .diagram-panel.y{border-left:3px solid var(--accent-3)}
+        .diagram-panel.g{border-left:3px solid var(--accent-4)}
+        .diagram-panel h4{font-family:var(--font-display);font-size:1rem;color:var(--accent);margin-bottom:.5rem}
+        .diagram-panel.r h4{color:var(--accent-2)}
+        .diagram-panel.y h4{color:var(--accent-3)}
+        .diagram-panel.g h4{color:var(--accent-4)}
+        .diagram-panel p,.diagram-panel ul{font-size:.9rem}
+        .callout{background:var(--bg-card);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.25rem 0}
+        .callout p{margin-bottom:0}
+        .callout .callout-label{font-family:var(--font-mono);font-size:.75rem;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem}
+        .canvas-wrap{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:1rem;margin:1.25rem 0;overflow-x:auto}
+        .canvas-wrap canvas{display:block;margin:0 auto;max-width:100%}
+        .control-panel{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:1.25rem;margin:1.25rem 0}
+        .control-row{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem;margin-bottom:.75rem}
+        .control-row label{font-family:var(--font-mono);font-size:.8rem;color:var(--text-secondary);min-width:130px}
+        .control-row input[type="range"]{flex:1;min-width:150px;accent-color:var(--accent)}
+        .control-row .val{font-family:var(--font-mono);font-size:.85rem;color:var(--accent);min-width:80px;text-align:right}
+        .control-row select{background:var(--bg-code);border:1px solid var(--border);color:var(--text-primary);border-radius:4px;padding:.3rem .5rem;font-family:var(--font-mono);font-size:.8rem}
+        .btn{font-family:var(--font-mono);font-size:.8rem;padding:.4rem .9rem;background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent);border-radius:4px;cursor:pointer}
+        .btn:hover{background:rgba(167,139,250,.25)}
+        .btn.secondary{background:var(--bg-code);color:var(--text-secondary);border-color:var(--border)}
+        .btn.pink{background:rgba(244,114,182,0.12);color:var(--accent-2);border-color:var(--accent-2)}
+        .btn.pink:hover{background:rgba(244,114,182,0.25)}
+        .btn.green{background:rgba(52,211,153,0.12);color:var(--accent-4);border-color:var(--accent-4)}
+        .btn.green:hover{background:rgba(52,211,153,0.25)}
+        .metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;margin-top:.75rem}
+        .metric{background:var(--bg-code);border:1px solid var(--border);border-radius:6px;padding:.6rem .8rem;text-align:center}
+        .metric .metric-label{font-family:var(--font-mono);font-size:.7rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.08em}
+        .metric .metric-value{font-family:var(--font-display);font-size:1.25rem;color:var(--accent);font-weight:600;margin-top:.2rem}
+        .contents-list{list-style:none;padding-left:0;counter-reset:contents}
+        .contents-list li{counter-increment:contents;padding:.6rem 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:1rem}
+        .contents-list li:last-child{border-bottom:none}
+        .contents-list li::before{content:counter(contents,decimal-leading-zero);font-family:var(--font-mono);font-size:.85rem;color:var(--accent);min-width:2rem}
+        .contents-list a{color:var(--text-primary);text-decoration:none}
+        .contents-list a:hover{color:var(--accent)}
+        .footer{text-align:center;padding:3rem 1.5rem;color:var(--text-secondary);font-size:.85rem;border-top:1px solid var(--border);max-width:var(--max-width);margin:0 auto}
+        .footer a{color:var(--accent);text-decoration:none}
+        .katex{color:var(--text-primary)}
+        .katex-display{margin:1rem 0;overflow-x:auto;overflow-y:hidden}
+        table{width:100%;border-collapse:collapse;font-size:.9rem;margin:1rem 0}
+        th{background:var(--bg-code);color:var(--accent);font-weight:600;text-align:left;padding:.6rem .85rem;border-bottom:1px solid var(--border);font-family:var(--font-display)}
+        td{padding:.5rem .85rem;border-bottom:1px solid var(--border);color:var(--text-secondary);vertical-align:top}
+        tr:last-child td{border-bottom:none}
+        tr:nth-child(even) td{background:rgba(13,17,23,.5)}
+        @media (max-width:640px){.slide{padding:3rem 1rem;min-height:auto}.slide-number{font-size:3rem;top:1.5rem;right:1rem}.slide h2{font-size:1.5rem}.diagram-grid.cols-2,.diagram-grid.cols-3{grid-template-columns:1fr}.hero h1{font-size:1.8rem}}
+    </style>
+</head>
+<body>
+
+<header class="hero">
+    <div class="series-label">Mathematics for Machine Learning &mdash; Deck 12</div>
+    <h1>Classification with <span class="accent">SVMs</span></h1>
+    <p class="subtitle">The maximum-margin hyperplane, the dual quadratic programme, support vectors, and the kernel trick &mdash; all four ideas in one demo.</p>
+
+    <div class="tags">
+        <span class="tag">hyperplane</span><span class="tag">max-margin</span>
+        <span class="tag">slack</span><span class="tag">dual QP</span>
+        <span class="tag">support vectors</span><span class="tag">kernel</span>
+    </div>
+</header>
+
+<section class="slide" id="slide-00">
+    <div class="slide-number">00</div>
+    <h2>Topics We'll Cover</h2>
+    <ul class="contents-list">
+        <li><a href="#slide-01">The binary classification setup</a></li>
+        <li><a href="#slide-02">Geometric margin</a></li>
+        <li><a href="#slide-03">Primal hard-margin SVM</a></li>
+        <li><a href="#slide-04">Soft-margin SVM &amp; the hinge loss</a></li>
+        <li><a href="#slide-05">The Lagrange dual</a></li>
+        <li><a href="#slide-06">Support vectors from KKT</a></li>
+        <li><a href="#slide-07">The kernel trick</a></li>
+        <li><a href="#slide-08">Three common kernels</a></li>
+        <li><a href="#slide-09">Interactive: 2D kernel SVM</a></li>
+        <li><a href="#slide-10">Solving the QP &mdash; SMO and friends</a></li>
+        <li><a href="#slide-11">Cheat sheet</a></li>
+    </ul>
+</section>
+
+<section class="slide" id="slide-01">
+    <div class="slide-number">01</div>
+    <h2>The Binary Classification Setup</h2>
+    <p>Data $\{(\mathbf{x}_n, y_n)\}_{n=1}^N$ with $\mathbf{x}_n\in\mathbb{R}^D$ and $y_n\in\{-1, +1\}$. We want a classifier of the form</p>
+    <p>$$\hat y(\mathbf{x}) = \mathrm{sign}\bigl(\mathbf{w}^\top\mathbf{x} + b\bigr).$$</p>
+    <p>The set $\{\mathbf{x} : \mathbf{w}^\top\mathbf{x}+b = 0\}$ is an affine hyperplane (deck 02). When the classes are linearly separable, infinitely many hyperplanes work; SVMs pick the one with the largest <em>margin</em>.</p>
+
+    <div class="callout">
+        <div class="callout-label">Why $\pm 1$ labels?</div>
+        <p>With $y_n\in\{-1,+1\}$, "correct classification" is exactly $y_n(\mathbf{w}^\top\mathbf{x}_n+b) &gt; 0$. The product trick (instead of $\{0,1\}$) is what makes the whole SVM algebra clean.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-02">
+    <div class="slide-number">02</div>
+    <h2>Geometric Margin</h2>
+    <p>The (signed) distance from $\mathbf{x}_n$ to the hyperplane $\mathbf{w}^\top\mathbf{x}+b=0$ is</p>
+    <p>$$\frac{\mathbf{w}^\top\mathbf{x}_n+b}{\|\mathbf{w}\|} \;\in\; \mathbb{R}.$$</p>
+    <p>Multiplying by $y_n$ makes correct classifications positive. The <strong>geometric margin</strong> of the training set is</p>
+    <p>$$\gamma = \min_n \;\frac{y_n(\mathbf{w}^\top\mathbf{x}_n+b)}{\|\mathbf{w}\|}.$$</p>
+
+    <p>By rescaling $(\mathbf{w}, b)$ we can assume the closest points satisfy $y_n(\mathbf{w}^\top\mathbf{x}_n + b) = 1$ &mdash; the <em>canonical form</em>. Then $\gamma = 1/\|\mathbf{w}\|$ and "maximise margin" $\iff$ "minimise $\|\mathbf{w}\|$".</p>
+</section>
+
+<section class="slide" id="slide-03">
+    <div class="slide-number">03</div>
+    <h2>Primal Hard-Margin SVM</h2>
+    <p>$$\min_{\mathbf{w}, b}\;\tfrac12\|\mathbf{w}\|^2 \quad \text{s.t.}\quad y_n(\mathbf{w}^\top\mathbf{x}_n + b) \ge 1,\;\; n=1,\dots,N.$$</p>
+    <p>This is a <em>convex quadratic programme</em> (deck 07): quadratic objective, linear inequality constraints. The objective $\tfrac12\|\mathbf{w}\|^2$ is strictly convex; the optimum is unique.</p>
+
+    <h3>What can go wrong</h3>
+    <ul>
+        <li>If the classes are <em>not</em> linearly separable, no $(\mathbf{w},b)$ satisfies every constraint &mdash; the problem is infeasible.</li>
+        <li>If they are barely separable, a single noisy point can push $\mathbf{w}$ to absurd values.</li>
+    </ul>
+    <p>The fix is the soft-margin SVM &mdash; slide 04.</p>
+</section>
+
+<section class="slide" id="slide-04">
+    <div class="slide-number">04</div>
+    <h2>Soft-Margin SVM &amp; the Hinge Loss</h2>
+    <p>Allow violations $\xi_n \ge 0$ and penalise them:</p>
+    <p>$$\min_{\mathbf{w},b,\boldsymbol\xi}\;\tfrac12\|\mathbf{w}\|^2 + C\sum_n \xi_n \quad \text{s.t.}\quad y_n(\mathbf{w}^\top\mathbf{x}_n+b)\ge 1-\xi_n,\;\;\xi_n\ge 0.$$</p>
+    <p>$C&gt;0$ is a hyperparameter: large $C$ means few violations (closer to hard-margin), small $C$ means a wider margin even at the cost of misclassifying training points.</p>
+
+    <h3>Equivalent loss form</h3>
+    <p>At the optimum, $\xi_n = \max\bigl(0, 1 - y_n(\mathbf{w}^\top\mathbf{x}_n+b)\bigr)$. So the SVM solves</p>
+    <p>$$\min_{\mathbf{w},b}\;\sum_n \underbrace{\max\bigl(0, 1 - y_n(\mathbf{w}^\top\mathbf{x}_n+b)\bigr)}_{\text{hinge loss}} + \frac{1}{2C}\|\mathbf{w}\|^2.$$</p>
+    <p>This is the canonical "loss + L2 regularisation" form &mdash; same shape as ridge regression, with the hinge instead of squared loss.</p>
+</section>
+
+<section class="slide" id="slide-05">
+    <div class="slide-number">05</div>
+    <h2>The Lagrange Dual</h2>
+    <p>Form the Lagrangian (deck 07) with multipliers $\alpha_n \ge 0$ for the inequality constraints and $\mu_n\ge 0$ for $\xi_n\ge 0$:</p>
+    <p>$$\mathcal L = \tfrac12\|\mathbf{w}\|^2 + C\sum_n \xi_n - \sum_n \alpha_n[y_n(\mathbf{w}^\top\mathbf{x}_n+b) - 1 + \xi_n] - \sum_n \mu_n \xi_n.$$</p>
+    <p>Setting $\nabla_{\mathbf{w}} = 0$, $\partial_b = 0$, $\partial_{\xi_n} = 0$:</p>
+    <p>$$\mathbf{w} = \sum_n \alpha_n y_n \mathbf{x}_n, \qquad \sum_n \alpha_n y_n = 0, \qquad \alpha_n + \mu_n = C.$$</p>
+    <p>Substituting back yields the <strong>dual problem</strong>:</p>
+    <p>$$\max_{\boldsymbol\alpha}\;\sum_n \alpha_n - \tfrac12 \sum_{m,n} \alpha_m\alpha_n y_m y_n \mathbf{x}_m^\top\mathbf{x}_n \quad \text{s.t.}\;\; 0\le\alpha_n\le C,\;\sum_n \alpha_n y_n = 0.$$</p>
+
+    <p>Convex QP in $N$ variables; strong duality (deck 07) holds because the primal is convex and Slater's condition is satisfied.</p>
+</section>
+
+<section class="slide" id="slide-06">
+    <div class="slide-number">06</div>
+    <h2>Support Vectors from KKT</h2>
+    <p>Complementary slackness (deck 07) gives, at the optimum:</p>
+    <ul>
+        <li>$\alpha_n = 0$: point is outside the margin, classified correctly. Doesn't influence $\mathbf{w}$.</li>
+        <li>$0 &lt; \alpha_n &lt; C$: point lies exactly <em>on</em> the margin; $y_n(\mathbf{w}^\top\mathbf{x}_n+b) = 1$. These are the <strong>support vectors on the margin</strong>; they're enough to recover $b$.</li>
+        <li>$\alpha_n = C$: point is inside the margin or misclassified; $\xi_n &gt; 0$. These are <strong>bound</strong> support vectors.</li>
+    </ul>
+
+    <p>From $\mathbf{w} = \sum_n \alpha_n y_n \mathbf{x}_n$, the prediction is</p>
+    <p>$$\hat y(\mathbf{x}) = \mathrm{sign}\Bigl(\sum_n \alpha_n y_n\,\mathbf{x}_n^\top\mathbf{x} + b\Bigr).$$</p>
+    <p>Only support vectors (those with $\alpha_n &gt; 0$) appear in the sum. <em>The SVM's representation is sparse in the training set.</em></p>
+</section>
+
+<section class="slide" id="slide-07">
+    <div class="slide-number">07</div>
+    <h2>The Kernel Trick</h2>
+    <p>In every formula above, $\mathbf{x}$ only ever appears as an inner product $\mathbf{x}_m^\top\mathbf{x}_n$. Replace it with any positive-definite kernel $k(\mathbf{x}_m, \mathbf{x}_n)$:</p>
+    <p>$$\max_{\boldsymbol\alpha}\;\sum_n \alpha_n - \tfrac12 \sum_{m,n} \alpha_m\alpha_n y_m y_n\,k(\mathbf{x}_m, \mathbf{x}_n).$$</p>
+    <p>The classifier becomes</p>
+    <p>$$\hat y(\mathbf{x}) = \mathrm{sign}\Bigl(\sum_{n\in\mathrm{SV}}\alpha_n y_n\,k(\mathbf{x}_n, \mathbf{x}) + b\Bigr).$$</p>
+
+    <p>Mercer's theorem says a kernel $k$ has the form $k(\mathbf{x},\mathbf{x}') = \boldsymbol\phi(\mathbf{x})^\top\boldsymbol\phi(\mathbf{x}')$ for some (possibly infinite-dimensional) feature map $\boldsymbol\phi$, as long as the kernel matrix $K_{ij} = k(\mathbf{x}_i,\mathbf{x}_j)$ is positive semi-definite for all data sets. The SVM never computes $\boldsymbol\phi$; it only needs $K$.</p>
+
+    <div class="callout">
+        <div class="callout-label">Why this is one of the most influential ideas in ML</div>
+        <p>It lets a linear algorithm operate in an arbitrarily complicated feature space at the cost of a kernel evaluation per pair of points &mdash; no representation of the feature space is ever materialised. Gaussian processes (kernel ridge regression), kernel PCA and kernel logistic regression are the same trick applied to different objectives.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-08">
+    <div class="slide-number">08</div>
+    <h2>Three Common Kernels</h2>
+    <table>
+        <thead><tr><th>Name</th><th>Definition</th><th>What it does</th></tr></thead>
+        <tbody>
+            <tr><td>Linear</td><td>$k(\mathbf x,\mathbf x') = \mathbf x^\top\mathbf x'$</td><td>Identical to the un-kernelised SVM; baseline.</td></tr>
+            <tr><td>Polynomial</td><td>$k(\mathbf x,\mathbf x') = (\mathbf x^\top\mathbf x' + c)^p$</td><td>Decision boundary is a degree-$p$ polynomial. Be careful with $p&gt;3$ &mdash; conditioning suffers.</td></tr>
+            <tr><td>RBF / Gaussian</td><td>$k(\mathbf x,\mathbf x') = e^{-\|\mathbf x-\mathbf x'\|^2 / (2\sigma^2)}$</td><td>Infinite-dimensional feature space; classifier is a smooth bump per support vector. The most popular default.</td></tr>
+        </tbody>
+    </table>
+
+    <h3>The RBF bandwidth $\sigma$</h3>
+    <ul>
+        <li>Tiny $\sigma$: each support vector influences only its immediate neighbourhood &mdash; the boundary fragments into bumps; overfits.</li>
+        <li>Huge $\sigma$: every pair of points has $k \approx 1$; the kernel matrix is rank-1 and the classifier is almost linear.</li>
+    </ul>
+    <p>Cross-validation (deck 08) picks the sweet spot.</p>
+</section>
+
+<section class="slide" id="slide-09">
+    <div class="slide-number">09</div>
+    <h2>Interactive: 2D Kernel SVM</h2>
+    <p>Hold the green or pink buttons to add points of each class. Choose a kernel and play with $C$ and (for RBF) $\sigma$. The decision boundary, the margin and the support vectors update live. The dual is solved by projected coordinate ascent under the box constraints.</p>
+
+    <div class="canvas-wrap">
+        <canvas id="svm-canvas" width="700" height="420"></canvas>
+    </div>
+
+    <div class="control-panel">
+        <div class="control-row">
+            <label for="svm-kernel">kernel</label>
+            <select id="svm-kernel">
+                <option value="rbf" selected>RBF</option>
+                <option value="poly">polynomial p=3</option>
+                <option value="linear">linear</option>
+            </select>
+        </div>
+        <div class="control-row">
+            <label for="svm-C">C (regularisation)</label>
+            <input type="range" id="svm-C" min="-2" max="2" step="0.1" value="0.5">
+            <div class="val" id="svm-C-r">3.16</div>
+        </div>
+        <div class="control-row">
+            <label for="svm-sigma">RBF σ</label>
+            <input type="range" id="svm-sigma" min="0.2" max="2.0" step="0.05" value="0.6">
+            <div class="val" id="svm-sigma-r">0.60</div>
+        </div>
+        <div class="control-row">
+            <button class="btn green" id="svm-add-pos">Add class +1 (green)</button>
+            <button class="btn pink" id="svm-add-neg">Add class −1 (pink)</button>
+            <button class="btn secondary" id="svm-sample">Sample two clusters</button>
+            <button class="btn secondary" id="svm-clear">Clear</button>
+        </div>
+        <div class="metric-grid">
+            <div class="metric"><div class="metric-label">N</div><div class="metric-value" id="svm-n">0</div></div>
+            <div class="metric"><div class="metric-label">support vectors</div><div class="metric-value" id="svm-sv">—</div></div>
+            <div class="metric"><div class="metric-label">training err</div><div class="metric-value" id="svm-err">—</div></div>
+        </div>
+    </div>
+
+    <p>Click outside the canvas to deactivate. Try the spiral / XOR pattern with linear vs RBF kernels: linear can't separate it, RBF can &mdash; the kernel trick at work.</p>
+</section>
+
+<section class="slide" id="slide-10">
+    <div class="slide-number">10</div>
+    <h2>Solving the QP &mdash; SMO and Friends</h2>
+    <p>The dual QP has $N$ variables, with one equality constraint and box constraints $0\le\alpha_n\le C$. General-purpose QP solvers are $\mathcal O(N^3)$ &mdash; too slow for $N$ in the tens of thousands.</p>
+
+    <h3>Sequential Minimal Optimisation (Platt, 1998)</h3>
+    <ol>
+        <li>Pick two variables $(\alpha_i, \alpha_j)$ to update; freeze the rest.</li>
+        <li>The 2-variable sub-problem has an analytical solution under the linear equality constraint and box constraints.</li>
+        <li>Repeat until KKT violations vanish.</li>
+    </ol>
+    <p>SMO is what libsvm and sklearn run by default. For very large data, coordinate descent on the primal (LibLinear) is faster &mdash; gives up some accuracy in exchange for speed.</p>
+
+    <h3>Caching the kernel matrix</h3>
+    <p>The biggest cost is $K\in\mathbb{R}^{N\times N}$. Production SVMs use working-set methods and cache only the rows for active variables. For $N$ in the millions you stop using kernel SVMs and switch to deep networks or kernel approximations (Nystr&ouml;m, random features).</p>
+</section>
+
+<section class="slide" id="slide-11">
+    <div class="slide-number">11</div>
+    <h2>Cheat Sheet</h2>
+    <table>
+        <thead><tr><th>Object</th><th>Formula</th></tr></thead>
+        <tbody>
+            <tr><td>Decision function</td><td>$\hat y(\mathbf x) = \mathrm{sign}(\mathbf w^\top\mathbf x + b)$</td></tr>
+            <tr><td>Geometric margin</td><td>$\gamma = 1/\|\mathbf w\|$ (canonical form)</td></tr>
+            <tr><td>Hard-margin primal</td><td>$\min \tfrac12\|\mathbf w\|^2$ s.t. $y_n(\mathbf w^\top\mathbf x_n+b)\ge 1$</td></tr>
+            <tr><td>Soft-margin primal</td><td>$\min \tfrac12\|\mathbf w\|^2 + C\sum\xi_n$ s.t. margin&minus;slack</td></tr>
+            <tr><td>Hinge loss</td><td>$\max(0, 1 - y(\mathbf w^\top\mathbf x + b))$</td></tr>
+            <tr><td>Dual QP</td><td>$\max\sum\alpha_n - \tfrac12\sum\alpha_m\alpha_n y_m y_n k(\mathbf x_m, \mathbf x_n)$</td></tr>
+            <tr><td>Constraint</td><td>$0\le\alpha_n\le C$, $\sum\alpha_n y_n = 0$</td></tr>
+            <tr><td>Weights from dual</td><td>$\mathbf w = \sum_n \alpha_n y_n \mathbf x_n$</td></tr>
+            <tr><td>Kernel classifier</td><td>$\hat y(\mathbf x) = \mathrm{sign}(\sum_{\text{SV}} \alpha_n y_n k(\mathbf x_n, \mathbf x) + b)$</td></tr>
+            <tr><td>RBF kernel</td><td>$\exp(-\|\mathbf x-\mathbf x'\|^2/(2\sigma^2))$</td></tr>
+        </tbody>
+    </table>
+
+    <div class="callout">
+        <div class="callout-label">The end of the book</div>
+        <p>You've worked through every chapter. Part I built the language: vectors, geometry, matrix decompositions, calculus, probability and optimisation. Part II turned each of those tools into an algorithm: regression as a projection, PCA as eigenvectors, GMM as EM on a latent model, SVM as a kernel-aware quadratic programme. The same toolkit reappears, restructured, in every model that came after &mdash; right up to today's transformers.</p>
+    </div>
+</section>
+
+<footer class="footer">
+    <p><strong>Book:</strong> Deisenroth, Faisal &amp; Ong, <em>Mathematics for Machine Learning</em> &mdash; Cambridge University Press, 2020, chapter 12.<br>Free PDF: <a href="https://mml-book.github.io/book/mml-book.pdf">mml-book.github.io/book/mml-book.pdf</a></p>
+    <p style="margin-top:.6rem"><a href="https://brendanjameslynskey.github.io/MML_Hub/">&larr; All decks</a> &middot; <a href="https://brendanjameslynskey.github.io/MML_11_Gaussian_Mixture_Models/">prev (11)</a></p>
+</footer>
+
+<script>
+// 2D SVM with kernels (dual coordinate ascent, simplified)
+(function() {
+    const cvs = document.getElementById('svm-canvas');
+    if (!cvs) return;
+    const ctx = cvs.getContext('2d');
+    const W = 700, H = 420;
+    cvs.width = W; cvs.height = H;
+
+    const xMin=-3.5, xMax=3.5, yMin=-2.2, yMax=2.2;
+    function toS(x,y){ return [(x-xMin)/(xMax-xMin)*W, H-(y-yMin)/(yMax-yMin)*H]; }
+    function fromS(sx,sy){ return [(sx/W)*(xMax-xMin)+xMin, yMin+(1-sy/H)*(yMax-yMin)]; }
+
+    let data = []; // {x, y, label: +1/-1}
+    let alpha = [];
+    let b = 0;
+    let kernel = 'rbf', C = 3.16, sigma = 0.6;
+    let adding = null;
+
+    function ker(p, q) {
+        if (kernel === 'linear') return p.x*q.x + p.y*q.y;
+        if (kernel === 'poly') { const s = p.x*q.x + p.y*q.y; return Math.pow(s + 1, 3); }
+        // rbf
+        const dx = p.x-q.x, dy = p.y-q.y;
+        return Math.exp(-(dx*dx + dy*dy) / (2*sigma*sigma));
+    }
+
+    function decision(p) {
+        let s = 0;
+        for (let i=0;i<data.length;i++) s += alpha[i] * data[i].label * ker(data[i], p);
+        return s + b;
+    }
+
+    // Simplified SMO-ish coordinate ascent
+    function train() {
+        const N = data.length;
+        if (N === 0) { alpha = []; b = 0; return; }
+        alpha = new Array(N).fill(0);
+        b = 0;
+        // Precompute kernel matrix
+        const K = []; for (let i=0;i<N;i++){ const row=new Array(N); for (let j=0;j<N;j++) row[j]=ker(data[i],data[j]); K.push(row); }
+        const labels = data.map(d => d.label);
+        // Simple SMO: pick pairs of i,j, optimise analytically
+        const maxPasses = 5;
+        const tol = 1e-3;
+        let passes = 0;
+        let it = 0;
+        while (passes < maxPasses && it < 400) {
+            let numChanged = 0;
+            for (let i=0;i<N;i++) {
+                // compute Ei
+                let fi = b; for (let k=0;k<N;k++) fi += alpha[k]*labels[k]*K[i][k];
+                const Ei = fi - labels[i];
+                if ((labels[i]*Ei < -tol && alpha[i] < C) || (labels[i]*Ei > tol && alpha[i] > 0)) {
+                    let j = Math.floor(Math.random()*N);
+                    if (j===i) j = (j+1) % N;
+                    let fj = b; for (let k=0;k<N;k++) fj += alpha[k]*labels[k]*K[j][k];
+                    const Ej = fj - labels[j];
+                    const ai0 = alpha[i], aj0 = alpha[j];
+                    let L, Hh;
+                    if (labels[i] !== labels[j]) { L = Math.max(0, aj0 - ai0); Hh = Math.min(C, C + aj0 - ai0); }
+                    else { L = Math.max(0, ai0 + aj0 - C); Hh = Math.min(C, ai0 + aj0); }
+                    if (L === Hh) continue;
+                    const eta = 2*K[i][j] - K[i][i] - K[j][j];
+                    if (eta >= 0) continue;
+                    let aj = aj0 - labels[j]*(Ei - Ej)/eta;
+                    aj = Math.max(L, Math.min(Hh, aj));
+                    if (Math.abs(aj - aj0) < 1e-5) continue;
+                    const ai = ai0 + labels[i]*labels[j]*(aj0 - aj);
+                    alpha[i] = ai; alpha[j] = aj;
+                    const b1 = b - Ei - labels[i]*(ai - ai0)*K[i][i] - labels[j]*(aj - aj0)*K[i][j];
+                    const b2 = b - Ej - labels[i]*(ai - ai0)*K[i][j] - labels[j]*(aj - aj0)*K[j][j];
+                    if (0 < ai && ai < C) b = b1;
+                    else if (0 < aj && aj < C) b = b2;
+                    else b = 0.5*(b1 + b2);
+                    numChanged++;
+                }
+                it++;
+            }
+            if (numChanged === 0) passes++; else passes = 0;
+        }
+    }
+
+    function draw() {
+        ctx.fillStyle = '#0d1117'; ctx.fillRect(0,0,W,H);
+        // background: decision value grid
+        const cols = 70, rows = 42;
+        const cellW = W/cols, cellH = H/rows;
+        for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) {
+            const sx = (c+0.5)*cellW, sy = (r+0.5)*cellH;
+            const [wx, wy] = fromS(sx, sy);
+            const d = decision({x: wx, y: wy});
+            const t = Math.tanh(d*1.2);
+            // pink for negative, green for positive
+            let R, G, B;
+            if (t >= 0) { R = 13 + Math.round(t*40); G = 17 + Math.round(t*180); B = 23 + Math.round(t*90); }
+            else { R = 13 + Math.round((-t)*220); G = 17 + Math.round((-t)*70); B = 23 + Math.round((-t)*140); }
+            ctx.fillStyle = `rgb(${R},${G},${B})`;
+            ctx.fillRect(c*cellW, r*cellH, cellW+1, cellH+1);
+        }
+
+        // decision boundary as contour through 0
+        ctx.strokeStyle = '#e6edf3'; ctx.lineWidth = 1.5;
+        // sample finer grid; draw line segments where sign changes between neighbours
+        const fG = 140, fH = 84;
+        const cw = W/fG, ch = H/fH;
+        const grid = new Float32Array(fG*fH);
+        for (let r=0;r<fH;r++) for (let c=0;c<fG;c++) {
+            const [wx, wy] = fromS((c+0.5)*cw, (r+0.5)*ch);
+            grid[r*fG+c] = decision({x: wx, y: wy});
+        }
+        for (let r=0;r<fH-1;r++) for (let c=0;c<fG-1;c++) {
+            const a = grid[r*fG+c], B2 = grid[r*fG+c+1], C2 = grid[(r+1)*fG+c], D2 = grid[(r+1)*fG+c+1];
+            const signs = [a>0,B2>0,C2>0,D2>0];
+            const allSame = signs[0]===signs[1] && signs[1]===signs[2] && signs[2]===signs[3];
+            if (!allSame) {
+                ctx.fillStyle = '#e6edf3';
+                ctx.fillRect(c*cw + cw*0.5, r*ch + ch*0.5, 1.4, 1.4);
+            }
+        }
+
+        // points
+        for (let i=0;i<data.length;i++) {
+            const p = data[i];
+            const [sx, sy] = toS(p.x, p.y);
+            const isSV = alpha[i] > 1e-4;
+            ctx.fillStyle = p.label > 0 ? '#34d399' : '#f472b6';
+            ctx.beginPath(); ctx.arc(sx, sy, isSV ? 6 : 4, 0, 2*Math.PI); ctx.fill();
+            if (isSV) {
+                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(sx, sy, 9, 0, 2*Math.PI); ctx.stroke();
+            }
+        }
+
+        // legend
+        ctx.fillStyle = '#fbbf24'; ctx.font = '12px JetBrains Mono, monospace';
+        ctx.fillText('amber ring = support vector', 14, 22);
+
+        // metrics
+        document.getElementById('svm-n').textContent = data.length;
+        let nsv = 0, err = 0;
+        for (let i=0;i<data.length;i++) {
+            if (alpha[i] > 1e-4) nsv++;
+            const pred = decision(data[i]) >= 0 ? 1 : -1;
+            if (pred !== data[i].label) err++;
+        }
+        document.getElementById('svm-sv').textContent = data.length ? nsv : '—';
+        document.getElementById('svm-err').textContent = data.length ? `${err}/${data.length}` : '—';
+    }
+
+    function rebuild() {
+        train();
+        draw();
+    }
+
+    document.getElementById('svm-kernel').addEventListener('change', e => { kernel = e.target.value; rebuild(); });
+    document.getElementById('svm-C').addEventListener('input', e => {
+        C = Math.pow(10, parseFloat(e.target.value));
+        document.getElementById('svm-C-r').textContent = C.toFixed(2);
+        rebuild();
+    });
+    document.getElementById('svm-sigma').addEventListener('input', e => {
+        sigma = parseFloat(e.target.value);
+        document.getElementById('svm-sigma-r').textContent = sigma.toFixed(2);
+        rebuild();
+    });
+    document.getElementById('svm-add-pos').addEventListener('click', () => adding = adding === 1 ? null : 1);
+    document.getElementById('svm-add-neg').addEventListener('click', () => adding = adding === -1 ? null : -1);
+    document.getElementById('svm-clear').addEventListener('click', () => { data = []; alpha = []; b = 0; draw(); });
+    document.getElementById('svm-sample').addEventListener('click', () => {
+        data = [];
+        for (let i=0;i<20;i++) data.push({x: -1.4 + 0.6*(Math.random()-0.5), y:  0.6 + 0.6*(Math.random()-0.5), label: 1});
+        for (let i=0;i<20;i++) data.push({x:  1.2 + 0.6*(Math.random()-0.5), y: -0.5 + 0.6*(Math.random()-0.5), label: -1});
+        rebuild();
+    });
+    cvs.addEventListener('click', e => {
+        if (!adding) return;
+        const r = cvs.getBoundingClientRect();
+        const sx = (e.clientX-r.left)*(W/r.width), sy = (e.clientY-r.top)*(H/r.height);
+        const [wx, wy] = fromS(sx, sy);
+        if (wx>xMin && wx<xMax && wy>yMin && wy<yMax) {
+            data.push({x: wx, y: wy, label: adding});
+            rebuild();
+        }
+    });
+    // initial sample
+    document.getElementById('svm-sample').click();
+})();
+</script>
+
+</body>
+</html>
